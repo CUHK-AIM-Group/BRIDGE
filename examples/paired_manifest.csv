@@ -1,0 +1,4 @@
+subject_id,brain_path,gut_path,label,fold
+PAIR_001,/path/to/paired/PAIR_001_brain.nii.gz,/path/to/paired/PAIR_001_gut.nii.gz,,0
+PAIR_002,/path/to/paired/PAIR_002_brain.nii.gz,/path/to/paired/PAIR_002_gut.nii.gz,,0
+

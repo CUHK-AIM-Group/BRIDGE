@@ -1,0 +1,15 @@
+seed: 2026
+device: auto
+shape: [96, 112, 96]
+batch_size: 8
+workers: 4
+latent_dim: 256
+base_channels: 12
+integration_steps: 8
+transport_epochs: 120
+diagnostic_epochs: 90
+fusion_epochs: 70
+learning_rate: 0.0002
+folds: 5
+labels: [CN, MCI, AD]
+

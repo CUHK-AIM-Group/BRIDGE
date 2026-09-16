@@ -1,0 +1,15 @@
+seed: 2026
+device: cpu
+shape: [32, 32, 32]
+batch_size: 3
+workers: 0
+latent_dim: 16
+base_channels: 2
+integration_steps: 2
+transport_epochs: 1
+diagnostic_epochs: 1
+fusion_epochs: 1
+learning_rate: 0.0002
+folds: 5
+labels: [CN, MCI, AD]
+

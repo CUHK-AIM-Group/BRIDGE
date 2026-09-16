@@ -1,0 +1,7 @@
+{
+  "schema_version": "1.0",
+  "embedding_dimension": 256,
+  "note": "Replace this metadata with a reviewed, versioned evidence-anchor artifact. No patient data should enter the offline evidence workflow.",
+  "classes": ["CN", "MCI", "AD"]
+}
+

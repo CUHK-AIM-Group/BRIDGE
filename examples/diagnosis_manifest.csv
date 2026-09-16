@@ -1,0 +1,5 @@
+subject_id,brain_path,gut_path,label,fold
+SUBJECT_001,/path/to/diagnosis/SUBJECT_001_brain.nii.gz,,CN,1
+SUBJECT_002,/path/to/diagnosis/SUBJECT_002_brain.nii.gz,,MCI,2
+SUBJECT_003,/path/to/diagnosis/SUBJECT_003_brain.nii.gz,,AD,3
+
