@@ -4,6 +4,8 @@ BRIDGE learns brain-to-gut latent transport from paired PET, then uses reliabili
 
 ![BRIDGE architecture](assets/architecture.jpg)
 
+This is a code-only reproducibility repository. Model weights (including anchor embeddings), training/test images, generated predictions, and experiment outputs are not distributed here. Files in `examples/` only illustrate input formats with placeholder paths; `scripts/make_demo_data.py` generates synthetic inputs locally when requested.
+
 ## Installation
 
 Use Python 3.10+ and a PyTorch build appropriate for your CUDA environment:
