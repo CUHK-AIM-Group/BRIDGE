@@ -59,6 +59,19 @@ python scripts/train_diagnosis.py --manifest data/demo/diagnosis.csv --anchors d
 
 The demo creates synthetic data under ignored `data/` and runs one epoch per phase, including held-out inference. Its AUC is a software check, not a clinical performance estimate. `--task CN/AD` runs the other mapping.
 
+## Citation
+
+If you find this work useful, please cite:
+
+```bibtex
+@article{zhu2026bridge,
+  title={BRIDGE: Learning Brain-Gut Metabolic Evidence for Alzheimer's Disease Diagnosis},
+  author={Zhu, Pengli and Chang, Ruxi and Yao, Tianliang and Jiang, Yu and Liu, Shengyuan and Lin, Yiyang and Duan, Xiaoyi and Wu, Shuang and Yuan, Yixuan and Alzheimer's Disease Neuroimaging Initiative and others},
+  journal={arXiv preprint arXiv:2610.39520},
+  year={2026}
+}
+```
+
 ## License
 
 MIT. Dataset access and permissions remain the responsibility of the data providers and users.
