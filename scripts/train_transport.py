@@ -13,7 +13,7 @@ from bridge.models import BrainGutLatentTransport
 from bridge.utils import device_from_name, save_checkpoint, seed_all, write_json
 
 
-def run_epoch(model, loader, device, optimizer=None) -> float:
+def run_epoch(model, loader, device, optimizer=None, gradient_clip=5.0) -> float:
     model.train(optimizer is not None)
     total = 0.0
     for batch in loader:
@@ -24,7 +24,7 @@ def run_epoch(model, loader, device, optimizer=None) -> float:
             loss = transport_loss(model(brain, gut))
             if optimizer:
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 5.0)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clip)
                 optimizer.step()
         total += float(loss.detach()) * brain.shape[0]
     return total / len(loader.dataset)
@@ -54,11 +54,12 @@ def main() -> None:
         "integration_steps": config["integration_steps"],
     }
     model = BrainGutLatentTransport(**model_config).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=config["learning_rate"], weight_decay=1e-4)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=config["learning_rate"],
+                                  weight_decay=config["weight_decay"])
     best, history = float("inf"), []
     epochs = args.epochs or config["transport_epochs"]
     for epoch in range(1, epochs + 1):
-        train_loss = run_epoch(model, train_loader, device, optimizer)
+        train_loss = run_epoch(model, train_loader, device, optimizer, config["gradient_clip"])
         validation_loss = run_epoch(model, validation_loader, device)
         history.append({"epoch": epoch, "train_loss": train_loss, "validation_loss": validation_loss})
         if validation_loss < best:

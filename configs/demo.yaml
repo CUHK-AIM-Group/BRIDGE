@@ -10,6 +10,11 @@ transport_epochs: 1
 diagnostic_epochs: 1
 fusion_epochs: 1
 learning_rate: 0.0002
+cerebral_learning_rate: 0.0002
+fusion_learning_rate: 0.00005
+weight_decay: 0.0001
+gradient_clip: 5.0
+early_stopping_patience: 15
 folds: 5
 labels: [CN, MCI, AD]
 

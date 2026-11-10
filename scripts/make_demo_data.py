@@ -21,7 +21,7 @@ def main() -> None:
     root.mkdir(parents=True, exist_ok=True)
     rng = np.random.default_rng(2026)
     paired, diagnosis = [], []
-    for index in range(15):
+    for index in range(30):
         label = ["CN", "MCI", "AD"][index % 3]
         brain = rng.normal(index % 3 * 0.15, 1, size=(32, 32, 32)).astype(np.float32)
         gut = (0.7 * brain + rng.normal(0, 0.3, brain.shape)).astype(np.float32)

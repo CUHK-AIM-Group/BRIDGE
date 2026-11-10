@@ -1,121 +1,64 @@
 # BRIDGE
 
-BRIDGE is a two-stage framework for Alzheimer's disease diagnosis from brain PET. It first learns a
-brain-to-gut latent transport from paired whole-body PET and then performs evidence-guided, reliability-gated
-virtual-gut fusion using brain-only PET. The public code supports CN, MCI, and AD classification while keeping
-the deployment input brain-only.
+BRIDGE learns brain-to-gut latent transport from paired PET, then uses reliability-gated virtual-gut evidence for brain-only diagnosis. The released binary evaluation supports **CN/MCI** (MCI positive) and **CN/AD** (AD positive).
 
 ![BRIDGE architecture](assets/architecture.jpg)
 
-## Overview
-
-**Stage 1 — Brain-to-Gut Latent Transport.** Organ-specific 3D encoders map paired brain and gut PET into a
-shared latent space. A conditional vector field is trained with flow matching and an endpoint constraint to
-predict a virtual-gut representation from the brain representation.
-
-**Stage 2 — Evidence-Guided Virtual-Gut Fusion.** A diagnostic encoder is modulated by a reviewed disease-
-evidence anchor bank. The frozen Stage 1 transport produces virtual-gut evidence from brain PET. A residual
-head and confidence gate add only reliable virtual-gut information to the cerebral diagnostic logits.
-
-At inference, BRIDGE requires only a brain PET volume. The offline evidence workflow is separate from model
-training and never receives patient images or labels.
-
-Repository layout:
-
-```text
-bridge/                 model, loss, data, and utility code
-scripts/                Stage 1 and Stage 2 entry points
-configs/                full and CPU demonstration configurations
-examples/               anonymous manifest and anchor schemas
-tests/                  end-to-end tensor smoke test
-tools/                   pre-release sensitive-information scanner
-assets/architecture.jpg method overview
-```
-
 ## Installation
 
-Python 3.10 or newer is recommended.
+Use Python 3.10+ and a PyTorch build appropriate for your CUDA environment:
 
 ```bash
-git clone https://github.com/Idea89560041/BRIDGE.git
-cd BRIDGE
-python -m venv .venv
-source .venv/bin/activate        # Windows: .venv\Scripts\activate
-python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
-```
-
-Run the CPU smoke test:
-
-```bash
 python -m pytest -q
 ```
 
-## Data preparation
+`device: auto` selects CUDA when available; CPU-only execution is supported. The scripts do not require mixed precision.
 
-BRIDGE expects preprocessed NIfTI volumes in a common analysis space. Create two CSV manifests following
-`examples/paired_manifest.csv` and `examples/diagnosis_manifest.csv`.
+## Data input
 
-- The paired manifest contains `subject_id`, `brain_path`, and `gut_path` for Stage 1.
-- The diagnosis manifest contains `subject_id`, `brain_path`, `label`, and a fixed outer `fold` for Stage 2.
-- Labels are `CN`, `MCI`, or `AD`; subject identifiers must be pseudonymous and unique.
-- Paths in the examples are placeholders. Do not commit real manifests or images.
+Use preprocessed NIfTI volumes and CSV manifests following `examples/`:
 
-Stage 2 also expects a reviewed PyTorch anchor artifact containing an `embeddings` tensor of shape `[K, D]`.
-The embedding dimension `D` must match `latent_dim` in the selected configuration.
+- Paired transport data: `subject_id,brain_path,gut_path`.
+- Diagnosis data: `subject_id,brain_path,label,fold`. Labels may be `CN/MCI/AD` or their original codes `0/1/2`. The selected binary task remaps its labels to `0/1` before training and evaluation.
+- Fixed outer folds must be numbered `1..5`, diagnosis-stratified, and shared by every examination of a patient. If all folds are missing/zero, five patient-level stratified folds are generated with the configured seed.
+- For repeated examinations, use the same `subject_id`, or add an optional `patient_id` column linking scan-specific subject IDs. Patient identity cannot be inferred from arbitrary scan names. Conflicting patient/fold assignments fail explicitly.
+- The reviewed anchor artifact must contain an `embeddings` tensor `[K, latent_dim]`.
 
-## Training and Evaluation
+Each outer fold is held out for testing (~20%). The remaining patients are split by diagnosis into training and validation at 7:1, giving ~70/10/20 overall. Entire patient groups stay together; longitudinal diagnoses are stratified by patient-majority diagnosis (ties follow diagnosis-code order). Ratios are approximate for small cohorts or unequal examination counts. Cohorts too small to stratify, or fixed folds missing a class, fail explicitly. Use identical manifests and seeds across compared methods.
 
-### Minimal reproducibility check
+## Training and AUC evaluation
 
-The following creates synthetic NIfTI volumes and runs one CPU epoch for both stages. Synthetic outputs are
-written under ignored `data/` and `runs/` directories.
+Run from the repository root. Stage 1 transport keeps its existing 120-epoch budget; do not confuse this with cerebral initialization or private fusion adaptation:
+
+```bash
+python scripts/train_transport.py --manifest /path/to/paired.csv --config configs/bridge.yaml --output runs/transport
+```
+
+Run all five diagnosis folds (omit `--fold`):
+
+```bash
+python scripts/train_diagnosis.py --manifest /path/to/diagnosis.csv --anchors /path/to/anchors.pt --transport runs/transport/transport.pt --config configs/bridge.yaml --task CN/MCI --output runs/diagnosis
+```
+
+Use `--task CN/AD` for CN/AD, or `--fold 1` for a single fold. Each fold uses validation loss for checkpoint selection and early stopping, then evaluates the outer test set once. ROC-AUC uses `softmax(final_logits)[:, 1]`, never argmax labels. A single-class test set raises an error. No test data are used for model selection.
+
+The full configuration uses batch size 8, weight decay `1e-4`, clipping at `5.0`, 60 cerebral-initialization epochs at `2e-4`, and at most 70 fusion-adaptation epochs at `5e-5`, with validation patience 15. Transport uses eight integration steps. These parameters are read from YAML; demo epoch/shape settings remain small. `--epochs` can shorten, but not increase, the configured diagnosis budgets.
+
+For a separate source-to-private experiment, first obtain a source cerebral checkpoint selected using **source validation data only**, then pass `--source-cerebral /path/to/cerebral.pt` when running the private manifest. Checkpoints saved by this script contain matching ordered binary `labels` and the `patient_ids` used for training/validation. Private runs reject overlapping source/private patient IDs, skip cerebral initialization, and preserve the existing cerebral/transport freezing policy during residual/gate adaptation. Use consistent patient identifiers across cohorts. Without this option, cerebral initialization uses the current fold's training data: it is a same-cohort run, not a separate-source transfer experiment. This release does not add private brain-head adaptation or change the fusion loss.
+
+Per-fold `metrics.json` contains only `auc`. A complete five-fold invocation writes `runs/diagnosis/CN_MCI/auc.json` (or `CN_AD/auc.json`) with `fold_auc`, `mean_auc`, and `std_auc`. The standard deviation uses `ddof=1`. Single-fold runs do not combine potentially stale results from separate runs. These are measured predictions, not the paper's reported results.
+
+## CPU demo
 
 ```bash
 python scripts/make_demo_data.py
-python scripts/train_transport.py \
-  --manifest data/demo/paired.csv \
-  --config configs/demo.yaml \
-  --output runs/demo_transport
-python scripts/train_diagnosis.py \
-  --manifest data/demo/diagnosis.csv \
-  --anchors data/demo/anchors.pt \
-  --transport runs/demo_transport/transport.pt \
-  --config configs/demo.yaml \
-  --fold 1 \
-  --output runs/demo_diagnosis
+python scripts/train_transport.py --manifest data/demo/paired.csv --config configs/demo.yaml --output runs/demo_transport
+python scripts/train_diagnosis.py --manifest data/demo/diagnosis.csv --anchors data/demo/anchors.pt --transport runs/demo_transport/transport.pt --config configs/demo.yaml --task CN/MCI --output runs/demo_diagnosis
 ```
 
-### Full experiment
-
-Train Stage 1 once using paired whole-body PET:
-
-```bash
-python scripts/train_transport.py \
-  --manifest /path/to/paired_manifest.csv \
-  --config configs/bridge.yaml \
-  --output runs/transport
-```
-
-Then train and evaluate Stage 2 independently for each fixed outer fold:
-
-```bash
-for FOLD in 1 2 3 4 5; do
-  python scripts/train_diagnosis.py \
-    --manifest /path/to/diagnosis_manifest.csv \
-    --anchors /path/to/reviewed_anchor_embeddings.pt \
-    --transport runs/transport/transport.pt \
-    --config configs/bridge.yaml \
-    --fold ${FOLD} \
-    --output runs/diagnosis
-done
-```
-
-Each fold writes selected checkpoints and `metrics.json`. Use validation data for model selection and evaluate
-the outer test fold only after selection. Keep fold assignments fixed across all reported experiments. See
-`RESULTS.md` for the reporting structure and `DATA_AND_PRIVACY.md` for release requirements.
+The demo creates synthetic data under ignored `data/` and runs one epoch per phase, including held-out inference. Its AUC is a software check, not a clinical performance estimate. `--task CN/AD` runs the other mapping.
 
 ## License
 
-This code is released under the MIT License. Dataset licenses and clinical governance requirements remain with
-their respective providers and institutions.
+MIT. Dataset access and permissions remain the responsibility of the data providers and users.

@@ -12,12 +12,15 @@ def seed_all(seed: int) -> None:
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
 
 def device_from_name(name: str) -> torch.device:
     if name == "auto":
         return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    if str(name).startswith("cuda") and not torch.cuda.is_available():
+        return torch.device("cpu")
     return torch.device(name)
 
 

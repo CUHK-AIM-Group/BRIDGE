@@ -7,9 +7,16 @@ latent_dim: 256
 base_channels: 12
 integration_steps: 8
 transport_epochs: 120
-diagnostic_epochs: 90
+# Cerebral initialization and private residual/gate adaptation are separate
+# from Stage 1 transport. Use --source-cerebral for a separate source cohort.
+diagnostic_epochs: 60
 fusion_epochs: 70
 learning_rate: 0.0002
+cerebral_learning_rate: 0.0002
+fusion_learning_rate: 0.00005
+weight_decay: 0.0001
+gradient_clip: 5.0
+early_stopping_patience: 15
 folds: 5
 labels: [CN, MCI, AD]
 
